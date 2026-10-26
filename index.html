@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow Pro - Smart Task & Schedule Planner</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .dark .glass-panel {
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Main Header -->
+    <header class="border-b border-gray-200 dark:border-gray-800 glass-panel sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/30">
+                    <i data-lucide="check-square" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent leading-none">
+                        TaskFlow Pro
+                    </h1>
+                    <span id="sync-status-indicator" class="text-[10px] font-semibold text-gray-400 flex items-center gap-1 mt-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Local Mode
+                    </span>
+                </div>
+            </div>
+
+            <!-- View Navigation Switcher -->
+            <nav class="hidden md:flex items-center gap-1 bg-gray-100 dark:bg-gray-800/80 p-1 rounded-xl border border-gray-200 dark:border-gray-700">
+                <button onclick="switchView('list')" id="nav-list" class="view-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400">
+                    <i data-lucide="list" class="w-4 h-4"></i> Tasks
+                </button>
+                <button onclick="switchView('kanban')" id="nav-kanban" class="view-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                    <i data-lucide="kanban" class="w-4 h-4"></i> Kanban
+                </button>
+                <button onclick="switchView('calendar')" id="nav-calendar" class="view-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                    <i data-lucide="calendar" class="w-4 h-4"></i> Calendar
+                </button>
+                <button onclick="switchView('analytics')" id="nav-analytics" class="view-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Analytics
+                </button>
+            </nav>
+
+            <!-- Action Controls -->
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <!-- Supabase Cloud Sync Modal Toggle Button -->
+                <button onclick="openSupabaseModal()" class="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5 text-xs font-medium" title="Supabase Cloud Settings">
+                    <i data-lucide="database" class="w-4 h-4 text-emerald-500"></i>
+                    <span class="hidden lg:inline">Supabase Sync</span>
+                </button>
+
+                <!-- GitHub Deployment Guide Modal Toggle -->
+                <button onclick="openGithubModal()" class="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5 text-xs font-medium" title="GitHub Deploy Guide">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    <span class="hidden lg:inline">GitHub Deploy</span>
+                </button>
+
+                <!-- Pomodoro Timer -->
+                <button onclick="openPomodoroModal()" class="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5" title="Pomodoro Timer">
+                    <i data-lucide="timer" class="w-4 h-4 text-red-500"></i>
+                    <span id="pomo-header-badge" class="hidden sm:inline text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">25:00</span>
+                </button>
+
+                <!-- Theme Toggle -->
+                <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Toggle Theme">
+                    <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                    <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+                </button>
+
+                <!-- New Task Button -->
+                <button onclick="openTaskModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-xs shadow-lg shadow-blue-500/25 transition">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">New Task</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Nav Tabs -->
+        <div class="flex md:hidden border-t border-gray-200 dark:border-gray-800 px-4 py-2 gap-1 overflow-x-auto">
+            <button onclick="switchView('list')" id="mob-nav-list" class="px-3 py-1 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">Tasks</button>
+            <button onclick="switchView('kanban')" id="mob-nav-kanban" class="px-3 py-1 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">Kanban</button>
+            <button onclick="switchView('calendar')" id="mob-nav-calendar" class="px-3 py-1 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">Calendar</button>
+            <button onclick="switchView('analytics')" id="mob-nav-analytics" class="px-3 py-1 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">Analytics</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+        <!-- Quick Stats Banner -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Total Tasks</p>
+                    <h3 id="stat-total" class="text-2xl font-bold mt-0.5">0</h3>
+                </div>
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Completion</p>
+                    <h3 id="stat-completion" class="text-2xl font-bold mt-0.5">0%</h3>
+                </div>
+                <div class="p-3 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Overdue</p>
+                    <h3 id="stat-overdue" class="text-2xl font-bold mt-0.5 text-red-500">0</h3>
+                </div>
+                <div class="p-3 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-xl">
+                    <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Focus Time</p>
+                    <h3 id="stat-focus-time" class="text-2xl font-bold mt-0.5 text-purple-500">0h</h3>
+                </div>
+                <div class="p-3 bg-purple-50 dark:bg-purple-900/30 text-purple-500 rounded-xl">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search & Filters Toolbar -->
+        <section class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
+            <!-- Search -->
+            <div class="relative flex-1">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="search-input" oninput="render()" placeholder="Search tasks or subtasks..." class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Filters -->
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="filter-category" onchange="render()" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="ALL">All Categories</option>
+                    <option value="Work">Work</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Urgent">Urgent</option>
+                    <option value="Health">Health</option>
+                    <option value="Learning">Learning</option>
+                </select>
+
+                <select id="filter-priority" onchange="render()" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="ALL">All Priorities</option>
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+
+                <select id="filter-status" onchange="render()" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="ALL">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Overdue">Overdue</option>
+                </select>
+
+                <select id="sort-by" onchange="render()" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="dueDate">Sort by Due Date</option>
+                    <option value="priority">Sort by Priority</option>
+                    <option value="created">Sort by Created</option>
+                    <option value="title">Sort Alphabetically</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- VIEW PANELS -->
+
+        <!-- 1. TASKS LIST VIEW -->
+        <section id="view-list" class="view-panel space-y-3">
+            <div id="task-list-container" class="space-y-3"></div>
+        </section>
+
+        <!-- 2. KANBAN BOARD VIEW -->
+        <section id="view-kanban" class="view-panel hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gray-100/70 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> To Do
+                    </h3>
+                    <span id="kanban-count-todo" class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full font-bold">0</span>
+                </div>
+                <div id="kanban-col-todo" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'todo')" class="flex-1 space-y-3 min-h-[350px]"></div>
+            </div>
+
+            <div class="bg-gray-100/70 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> In Progress
+                    </h3>
+                    <span id="kanban-count-inprogress" class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full font-bold">0</span>
+                </div>
+                <div id="kanban-col-inprogress" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'inprogress')" class="flex-1 space-y-3 min-h-[350px]"></div>
+            </div>
+
+            <div class="bg-gray-100/70 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span> Completed
+                    </h3>
+                    <span id="kanban-count-completed" class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full font-bold">0</span>
+                </div>
+                <div id="kanban-col-completed" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'completed')" class="flex-1 space-y-3 min-h-[350px]"></div>
+            </div>
+        </section>
+
+        <!-- 3. CALENDAR VIEW -->
+        <section id="view-calendar" class="view-panel hidden bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="calendar-month-year" class="text-base font-bold">Month Year</h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="prevMonth()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <button onclick="todayMonth()" class="px-3 py-1 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg">Today</button>
+                    <button onclick="nextMonth()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <div class="grid grid-cols-7 text-center font-semibold text-xs text-gray-400 pb-2 border-b border-gray-200 dark:border-gray-700">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1 mt-2"></div>
+        </section>
+
+        <!-- 4. ANALYTICS VIEW -->
+        <section id="view-analytics" class="view-panel hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm">
+                    <h3 class="font-semibold text-sm mb-4 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-blue-500"></i> Category Breakdown
+                    </h3>
+                    <div class="h-64 relative">
+                        <canvas id="chart-category"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm">
+                    <h3 class="font-semibold text-sm mb-4 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-500"></i> Priority Distribution
+                    </h3>
+                    <div class="h-64 relative">
+                        <canvas id="chart-priority"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- CREATE/EDIT TASK MODAL -->
+    <div id="task-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 my-8">
+            <div class="flex justify-between items-center pb-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 id="modal-title" class="text-base font-bold">Create New Task</h3>
+                <button onclick="closeTaskModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="task-form" onsubmit="saveTask(event)" class="mt-4 space-y-4">
+                <input type="hidden" id="task-id">
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Title *</label>
+                    <input type="text" id="task-title-input" required placeholder="e.g. Design Landing Page" class="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Description</label>
+                    <textarea id="task-desc-input" rows="2" placeholder="Task details or context..." class="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Category</label>
+                        <select id="task-category-input" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Work">Work</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="Health">Health</option>
+                            <option value="Learning">Learning</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Priority</label>
+                        <select id="task-priority-input" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Critical">Critical</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Due Date</label>
+                        <input type="date" id="task-date-input" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Due Time</label>
+                        <input type="time" id="task-time-input" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Est. Minutes</label>
+                        <input type="number" id="task-est-input" min="5" step="5" placeholder="30" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Recurrence</label>
+                        <select id="task-recurring-input" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="None">None</option>
+                            <option value="Daily">Daily</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Monthly">Monthly</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Subtasks Section -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Subtasks Checklist</label>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="subtask-input" placeholder="Add subtask step..." class="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="handleAddSubtask()" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-xs font-semibold rounded-xl transition">
+                            Add
+                        </button>
+                    </div>
+                    <ul id="subtasks-list-modal" class="space-y-1.5 max-h-28 overflow-y-auto"></ul>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <button type="button" onclick="closeTaskModal()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-xl text-xs font-semibold transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-md transition">
+                        Save Task
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SUPABASE CONFIGURATION MODAL -->
+    <div id="supabase-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 my-8 space-y-4">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="database" class="w-5 h-5 text-emerald-500"></i>
+                    <h3 class="text-base font-bold">Supabase Integration & Cloud Sync</h3>
+                </div>
+                <button onclick="closeSupabaseModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+                Connect your free <strong class="text-emerald-500">Supabase</strong> project to automatically back up and sync your tasks across devices in real-time.
+            </p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase mb-1">Supabase Project URL</label>
+                    <input type="text" id="supabase-url" placeholder="https://xyzcompany.supabase.co" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase mb-1">Supabase Anon Key</label>
+                    <input type="password" id="supabase-key" placeholder="eyJhY2...your_anon_key" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 pt-2">
+                <button onclick="testAndSaveSupabaseConnection()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 transition">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Test Connection & Sync
+                </button>
+                <button onclick="disconnectSupabase()" class="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 rounded-xl text-xs font-semibold transition">
+                    Disconnect
+                </button>
+            </div>
+
+            <!-- SQL Schema Setup Helper -->
+            <div class="bg-gray-50 dark:bg-gray-900/80 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700/80 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold flex items-center gap-1 text-gray-700 dark:text-gray-300">
+                        <i data-lucide="terminal" class="w-4 h-4 text-emerald-500"></i> Supabase SQL Setup Snippet
+                    </span>
+                    <button onclick="copySqlSchema()" class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+                        <i data-lucide="copy" class="w-3 h-3"></i> Copy SQL
+                    </button>
+                </div>
+                <p class="text-[11px] text-gray-400">Copy & paste this snippet into your Supabase Dashboard -> <b>SQL Editor</b> to generate the required database table:</p>
+                <pre class="bg-gray-900 text-emerald-400 p-2.5 rounded-lg text-[10px] font-mono overflow-x-auto select-all">
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  priority TEXT,
+  dueDate TEXT,
+  dueTime TEXT,
+  estimatedTime INT,
+  status TEXT,
+  completed BOOLEAN DEFAULT FALSE,
+  subtasks JSONB DEFAULT '[]'::jsonb,
+  recurring TEXT DEFAULT 'None',
+  created TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public full access" ON tasks FOR ALL USING (true);
+                </pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- GITHUB DEPLOYMENT & DATA BACKUP MODAL -->
+    <div id="github-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 my-8 space-y-4">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="github" class="w-5 h-5 text-purple-500"></i>
+                    <h3 class="text-base font-bold">GitHub Repository Deployment Guide</h3>
+                </div>
+                <button onclick="closeGithubModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Export / Import Section -->
+            <div class="p-3.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 flex items-center justify-between gap-3">
+                <div>
+                    <h4 class="text-xs font-bold text-blue-900 dark:text-blue-300">Data Backup & Export</h4>
+                    <p class="text-[11px] text-blue-700 dark:text-blue-400">Save your current tasks locally as JSON.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="exportTasksJSON()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Export JSON
+                    </button>
+                    <label class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-xs font-semibold rounded-lg cursor-pointer transition flex items-center gap-1">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import JSON
+                        <input type="file" id="import-json-input" accept=".json" onchange="importTasksJSON(event)" class="hidden">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Step by Step Deployment Guide -->
+            <div class="space-y-3">
+                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">How to Save & Publish on GitHub Pages:</h4>
+
+                <ol class="space-y-2.5 text-xs text-gray-600 dark:text-gray-300 list-decimal list-inside">
+                    <li class="leading-relaxed">
+                        <strong>Download Code File:</strong> Click below to download this web app file as <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-blue-500">index.html</code>.
+                    </li>
+                    <li class="leading-relaxed">
+                        <strong>Create GitHub Repo:</strong> Go to <a href="https://github.com/new" target="_blank" class="text-blue-500 underline">github.com/new</a> and create a repository named <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">taskflow-pro</code>.
+                    </li>
+                    <li class="leading-relaxed">
+                        <strong>Upload index.html:</strong> Click <i>"uploading an existing file"</i> inside your new repository and upload the <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">index.html</code> file.
+                    </li>
+                    <li class="leading-relaxed">
+                        <strong>Enable GitHub Pages:</strong> Go to Repo <b>Settings -> Pages</b>, set Source branch to <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">main</code> (or <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">master</code>) and click <b>Save</b>. Your web app will be live globally!
+                    </li>
+                </ol>
+            </div>
+
+            <div class="pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                <button onclick="downloadAppCode()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow transition flex items-center gap-2">
+                    <i data-lucide="file-code" class="w-4 h-4"></i> Download index.html Code
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POMODORO TIMER MODAL -->
+    <div id="pomodoro-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 text-center relative">
+            <button onclick="closePomodoroModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="flex justify-center mb-2">
+                <span class="p-3 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-2xl">
+                    <i data-lucide="timer" class="w-7 h-7"></i>
+                </span>
+            </div>
+            
+            <h3 class="text-lg font-bold">Focus Pomodoro</h3>
+            <p id="pomo-mode-label" class="text-xs font-semibold uppercase text-gray-400 mt-1">Work Session</p>
+
+            <div id="pomo-display" class="text-5xl font-black my-6 tracking-tight font-mono">25:00</div>
+
+            <div class="mb-5 text-left">
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase mb-1">Target Task:</label>
+                <select id="pomo-task-select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs"></select>
+            </div>
+
+            <div class="flex items-center justify-center gap-3">
+                <button id="pomo-start-btn" onclick="togglePomodoroTimer()" class="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold text-xs shadow-lg shadow-red-500/30 transition flex items-center gap-1.5">
+                    <i data-lucide="play" class="w-4 h-4"></i> Start Focus
+                </button>
+                <button onclick="resetPomodoroTimer()" class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-xl transition">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP JAVASCRIPT -->
+    <script>
+        /* ==================== APP STATE ==================== */
+        let tasks = [];
+        let currentView = 'list';
+        let tempSubtasks = [];
+        let currentDate = new Date();
+
+        // Supabase State
+        let supabaseClient = null;
+        let isSupabaseConnected = false;
+
+        // Pomodoro State
+        let pomodoroInterval = null;
+        let pomodoroTimeLeft = 25 * 60;
+        let pomodoroIsRunning = false;
+        let pomodoroMode = 'work';
+        let pomodoroTotalLoggedSeconds = 0;
+
+        // Charts
+        let categoryChartInstance = null;
+        let priorityChartInstance = null;
+
+        /* ==================== INITIALIZATION ==================== */
+        window.addEventListener('DOMContentLoaded', async () => {
+            initTheme();
+            loadTasksLocal();
+            initSupabaseFromStorage();
+            render();
+            setupLucide();
+            setInterval(checkTaskDeadlines, 60000);
+        });
+
+        function setupLucide() {
+            if (window.lucide) lucide.createIcons();
+        }
+
+        /* ==================== LOCAL STORAGE LOGIC ==================== */
+        function loadTasksLocal() {
+            const saved = localStorage.getItem('taskflow_tasks');
+            const savedFocus = localStorage.getItem('taskflow_focus_time');
+            if (savedFocus) pomodoroTotalLoggedSeconds = parseInt(savedFocus, 10);
+
+            if (saved) {
+                try {
+                    tasks = JSON.parse(saved);
+                } catch (e) { tasks = []; }
+            } else {
+                // Populate default starting sample tasks
+                const today = new Date().toISOString().split('T')[0];
+                tasks = [
+                    {
+                        id: 'task-1',
+                        title: 'Setup Supabase Cloud Sync',
+                        description: 'Enter Supabase credentials in settings to sync tasks across browsers.',
+                        category: 'Work',
+                        priority: 'High',
+                        dueDate: today,
+                        dueTime: '18:00',
+                        estimatedTime: 15,
+                        status: 'todo',
+                        completed: false,
+                        subtasks: [{ id: 's1', title: 'Copy SQL Schema', completed: false }],
+                        recurring: 'None',
+                        created: new Date().toISOString()
+                    },
+                    {
+                        id: 'task-2',
+                        title: 'Deploy to GitHub Pages',
+                        description: 'Save repository on GitHub and publish web planner.',
+                        category: 'Personal',
+                        priority: 'Medium',
+                        dueDate: today,
+                        dueTime: '20:00',
+                        estimatedTime: 20,
+                        status: 'inprogress',
+                        completed: false,
+                        subtasks: [],
+                        recurring: 'None',
+                        created: new Date().toISOString()
+                    }
+                ];
+                saveTasksLocal();
+            }
+        }
+
+        function saveTasksLocal() {
+            localStorage.setItem('taskflow_tasks', JSON.stringify(tasks));
+            localStorage.setItem('taskflow_focus_time', pomodoroTotalLoggedSeconds.toString());
+        }
+
+        /* ==================== SUPABASE CLOUD INTEGRATION ==================== */
+        function initSupabaseFromStorage() {
+            const url = localStorage.getItem('supabase_url');
+            const key = localStorage.getItem('supabase_key');
+            if (url && key && window.supabase) {
+                try {
+                    supabaseClient = window.supabase.createClient(url, key);
+                    isSupabaseConnected = true;
+                    updateSyncIndicator('Cloud Sync Active', 'bg-emerald-500');
+                    pullFromSupabase();
+                } catch (e) {
+                    console.error('Supabase init error:', e);
+                    isSupabaseConnected = false;
+                    updateSyncIndicator('Local Mode', 'bg-gray-400');
+                }
+            } else {
+                updateSyncIndicator('Local Mode', 'bg-gray-400');
+            }
+        }
+
+        function updateSyncIndicator(text, colorClass) {
+            const indicator = document.getElementById('sync-status-indicator');
+            if (indicator) {
+                indicator.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${colorClass}"></span> ${text}`;
+            }
+        }
+
+        function openSupabaseModal() {
+            document.getElementById('supabase-url').value = localStorage.getItem('supabase_url') || '';
+            document.getElementById('supabase-key').value = localStorage.getItem('supabase_key') || '';
+            const modal = document.getElementById('supabase-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeSupabaseModal() {
+            const modal = document.getElementById('supabase-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function testAndSaveSupabaseConnection() {
+            const url = document.getElementById('supabase-url').value.trim();
+            const key = document.getElementById('supabase-key').value.trim();
+
+            if (!url || !key) {
+                showToast('Please enter both Supabase URL and Key', 'error');
+                return;
+            }
+
+            try {
+                const client = window.supabase.createClient(url, key);
+                const { data, error } = await client.from('tasks').select('id').limit(1);
+
+                if (error) throw error;
+
+                // Success
+                localStorage.setItem('supabase_url', url);
+                localStorage.setItem('supabase_key', key);
+                supabaseClient = client;
+                isSupabaseConnected = true;
+
+                updateSyncIndicator('Cloud Sync Active', 'bg-emerald-500');
+                showToast('Connected to Supabase! Syncing tasks...', 'success');
+
+                await pushToSupabase();
+                closeSupabaseModal();
+            } catch (err) {
+                console.error(err);
+                showToast('Connection failed: Ensure table is created via SQL', 'error');
+            }
+        }
+
+        function disconnectSupabase() {
+            localStorage.removeItem('supabase_url');
+            localStorage.removeItem('supabase_key');
+            supabaseClient = null;
+            isSupabaseConnected = false;
+            updateSyncIndicator('Local Mode', 'bg-gray-400');
+            showToast('Disconnected from Supabase Cloud', 'warning');
+            closeSupabaseModal();
+        }
+
+        async function pushToSupabase() {
+            if (!isSupabaseConnected || !supabaseClient) return;
+            try {
+                for (const t of tasks) {
+                    await supabaseClient.from('tasks').upsert(t);
+                }
+            } catch (err) {
+                console.error('Cloud Push error:', err);
+            }
+        }
+
+        async function pullFromSupabase() {
+            if (!isSupabaseConnected || !supabaseClient) return;
+            try {
+                const { data, error } = await supabaseClient.from('tasks').select('*');
+                if (!error && data) {
+                    tasks = data;
+                    saveTasksLocal();
+                    render();
+                }
+            } catch (err) {
+                console.error('Cloud Pull error:', err);
+            }
+        }
+
+        function copySqlSchema() {
+            const sql = `CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  priority TEXT,
+  dueDate TEXT,
+  dueTime TEXT,
+  estimatedTime INT,
+  status TEXT,
+  completed BOOLEAN DEFAULT FALSE,
+  subtasks JSONB DEFAULT '[]'::jsonb,
+  recurring TEXT DEFAULT 'None',
+  created TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public full access" ON tasks FOR ALL USING (true);`;
+
+            copyTextToClipboard(sql);
+            showToast('SQL Schema copied to clipboard!', 'success');
+        }
+
+        /* ==================== GITHUB / DEPLOYMENT / BACKUP ==================== */
+        function openGithubModal() {
+            const modal = document.getElementById('github-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeGithubModal() {
+            const modal = document.getElementById('github-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function exportTasksJSON() {
+            const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `taskflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Tasks backup exported successfully', 'success');
+        }
+
+        function importTasksJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const imported = JSON.parse(evt.target.result);
+                    if (Array.isArray(imported)) {
+                        tasks = imported;
+                        saveTasksLocal();
+                        pushToSupabase();
+                        render();
+                        showToast('Tasks imported successfully!', 'success');
+                    } else {
+                        showToast('Invalid JSON structure', 'error');
+                    }
+                } catch (err) {
+                    showToast('Failed to parse JSON file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadAppCode() {
+            const htmlContent = document.documentElement.outerHTML;
+            const blob = new Blob(['<!DOCTYPE html>\n' + htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'index.html';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('index.html downloaded! Ready for GitHub repository upload.', 'success');
+        }
+
+        /* Helper clipboard utility fallback */
+        function copyTextToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+        }
+
+        /* ==================== THEME & UTILITIES ==================== */
+        function initTheme() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function toggleDarkMode() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+            if (currentView === 'analytics') renderAnalyticsView();
+        }
+
+        function playTone(freq = 520, duration = 0.15) {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-xl border text-xs font-medium transition transform translate-y-2 opacity-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700`;
+            
+            let icon = 'info';
+            let colorClass = 'text-blue-500';
+            if (type === 'success') { icon = 'check-circle'; colorClass = 'text-emerald-500'; }
+            if (type === 'warning') { icon = 'alert-triangle'; colorClass = 'text-amber-500'; }
+            if (type === 'error') { icon = 'alert-circle'; colorClass = 'text-red-500'; }
+
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${colorClass}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setupLucide();
+
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        /* ==================== NAVIGATION ==================== */
+        function switchView(viewName) {
+            currentView = viewName;
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.add('hidden'));
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.className = 'view-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200';
+            });
+
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${viewName}`);
+            if (activeBtn) {
+                activeBtn.className = 'view-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400';
+            }
+            render();
+        }
+
+        /* ==================== CORE RENDER ==================== */
+        function render() {
+            updateMetrics();
+            if (currentView === 'list') renderListView();
+            if (currentView === 'kanban') renderKanbanView();
+            if (currentView === 'calendar') renderCalendarView();
+            if (currentView === 'analytics') renderAnalyticsView();
+            setupLucide();
+        }
+
+        function updateMetrics() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            const now = new Date();
+            const overdue = tasks.filter(t => {
+                if (t.completed || !t.dueDate) return false;
+                return new Date(`${t.dueDate}T${t.dueTime || '23:59'}`) < now;
+            }).length;
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-completion').innerText = `${percentage}%`;
+            document.getElementById('stat-overdue').innerText = overdue;
+
+            const focusHours = (pomodoroTotalLoggedSeconds / 3600).toFixed(1);
+            document.getElementById('stat-focus-time').innerText = `${focusHours}h`;
+        }
+
+        function getFilteredTasks() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const category = document.getElementById('filter-category').value;
+            const priority = document.getElementById('filter-priority').value;
+            const status = document.getElementById('filter-status').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            const now = new Date();
+
+            return tasks.filter(t => {
+                const matchSearch = t.title.toLowerCase().includes(query) || (t.description && t.description.toLowerCase().includes(query));
+                const matchCategory = category === 'ALL' || t.category === category;
+                const matchPriority = priority === 'ALL' || t.priority === priority;
+                
+                let matchStatus = true;
+                if (status === 'Active') matchStatus = !t.completed;
+                if (status === 'Completed') matchStatus = t.completed;
+                if (status === 'Overdue') {
+                    matchStatus = !t.completed && t.dueDate && new Date(`${t.dueDate}T${t.dueTime || '23:59'}`) < now;
+                }
+
+                return matchSearch && matchCategory && matchPriority && matchStatus;
+            }).sort((a, b) => {
+                if (sortBy === 'dueDate') {
+                    if (!a.dueDate) return 1;
+                    if (!b.dueDate) return -1;
+                    return new Date(`${a.dueDate}T${a.dueTime || '00:00'}`) - new Date(`${b.dueDate}T${b.dueTime || '00:00'}`);
+                }
+                if (sortBy === 'priority') {
+                    const weight = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
+                    return weight[b.priority] - weight[a.priority];
+                }
+                if (sortBy === 'created') return new Date(b.created) - new Date(a.created);
+                if (sortBy === 'title') return a.title.localeCompare(b.title);
+                return 0;
+            });
+        }
+
+        /* ==================== 1. LIST VIEW ==================== */
+        function renderListView() {
+            const container = document.getElementById('task-list-container');
+            const filtered = getFilteredTasks();
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 border-2 border-dashed border-gray-200 dark:border-gray-700/60 rounded-2xl">
+                        <i data-lucide="clipboard-x" class="w-8 h-8 mx-auto text-gray-400 mb-2"></i>
+                        <h4 class="font-semibold text-xs text-gray-500">No tasks found</h4>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(t => createTaskCardHTML(t)).join('');
+        }
+
+        function createTaskCardHTML(task) {
+            const isOverdue = !task.completed && task.dueDate && new Date(`${task.dueDate}T${task.dueTime || '23:59'}`) < new Date();
+            const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
+            const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
+            const subtaskPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+
+            const priorityColors = {
+                'Critical': 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
+                'High': 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+                'Medium': 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+                'Low': 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+            };
+
+            return `
+                <div class="group bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm hover:shadow transition flex flex-col gap-2.5 ${task.completed ? 'opacity-65' : ''}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-start gap-3 flex-1 min-w-0">
+                            <button onclick="toggleTaskCompletion('${task.id}')" class="mt-0.5 w-5 h-5 rounded-lg border-2 flex items-center justify-center transition ${task.completed ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'}">
+                                ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : ''}
+                            </button>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                    <h4 class="font-semibold text-sm ${task.completed ? 'line-through text-gray-400' : ''}">${escapeHTML(task.title)}</h4>
+                                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full border ${priorityColors[task.priority]}">${task.priority}</span>
+                                    <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300">${task.category}</span>
+                                </div>
+
+                                ${task.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">${escapeHTML(task.description)}</p>` : ''}
+
+                                ${totalSubtasks > 0 ? `
+                                    <div class="mt-2 mb-1">
+                                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                                            <span>Subtasks (${completedSubtasks}/${totalSubtasks})</span>
+                                            <span>${subtaskPercent}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full overflow-hidden">
+                                            <div class="bg-blue-500 h-full transition-all duration-300" style="width: ${subtaskPercent}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 space-y-1">
+                                        ${task.subtasks.map(sub => `
+                                            <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                                <button onclick="toggleSubtask('${task.id}', '${sub.id}')" class="w-3.5 h-3.5 rounded border flex items-center justify-center ${sub.completed ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 dark:border-gray-600'}">
+                                                    ${sub.completed ? '<i data-lucide="check" class="w-2.5 h-2.5"></i>' : ''}
+                                                </button>
+                                                <span class="${sub.completed ? 'line-through text-gray-400' : ''}">${escapeHTML(sub.title)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+
+                                <div class="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-gray-400">
+                                    ${task.dueDate ? `
+                                        <span class="flex items-center gap-1 ${isOverdue ? 'text-red-500 font-semibold' : ''}">
+                                            <i data-lucide="calendar" class="w-3 h-3"></i> ${task.dueDate} ${task.dueTime ? 'at ' + task.dueTime : ''} ${isOverdue ? '(Overdue)' : ''}
+                                        </span>
+                                    ` : ''}
+                                    ${task.estimatedTime ? `<span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${task.estimatedTime}m</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
+                            <button onclick="openTaskModal('${task.id}')" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-600" title="Edit"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="deleteTask('${task.id}')" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg text-gray-400 hover:text-red-500" title="Delete"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* ==================== 2. KANBAN VIEW ==================== */
+        function renderKanbanView() {
+            const filtered = getFilteredTasks();
+
+            const todoTasks = filtered.filter(t => !t.completed && (t.status === 'todo' || !t.status));
+            const inprogressTasks = filtered.filter(t => !t.completed && t.status === 'inprogress');
+            const completedTasks = filtered.filter(t => t.completed);
+
+            document.getElementById('kanban-count-todo').innerText = todoTasks.length;
+            document.getElementById('kanban-count-inprogress').innerText = inprogressTasks.length;
+            document.getElementById('kanban-count-completed').innerText = completedTasks.length;
+
+            document.getElementById('kanban-col-todo').innerHTML = todoTasks.map(t => createKanbanCardHTML(t)).join('');
+            document.getElementById('kanban-col-inprogress').innerHTML = inprogressTasks.map(t => createKanbanCardHTML(t)).join('');
+            document.getElementById('kanban-col-completed').innerHTML = completedTasks.map(t => createKanbanCardHTML(t)).join('');
+        }
+
+        function createKanbanCardHTML(task) {
+            return `
+                <div draggable="true" ondragstart="handleDragStart(event, '${task.id}')" class="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm cursor-grab active:cursor-grabbing space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300">${task.category}</span>
+                        <span class="text-[9px] font-bold text-gray-400">${task.priority}</span>
+                    </div>
+                    <h5 class="font-semibold text-xs ${task.completed ? 'line-through text-gray-400' : ''}">${escapeHTML(task.title)}</h5>
+                    ${task.dueDate ? `<p class="text-[10px] text-gray-400 flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3"></i> ${task.dueDate}</p>` : ''}
+                </div>
+            `;
+        }
+
+        function handleDragStart(e, taskId) { e.dataTransfer.setData('text/plain', taskId); }
+        function handleDragOver(e) { e.preventDefault(); }
+        function handleDrop(e, targetStatus) {
+            e.preventDefault();
+            const taskId = e.dataTransfer.getData('text/plain');
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                if (targetStatus === 'completed') {
+                    task.completed = true;
+                    task.status = 'completed';
+                } else {
+                    task.completed = false;
+                    task.status = targetStatus;
+                }
+                saveTasksLocal();
+                pushToSupabase();
+                render();
+            }
+        }
+
+        /* ==================== 3. CALENDAR VIEW ==================== */
+        function renderCalendarView() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('calendar-month-year').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) {
+                grid.appendChild(document.createElement('div'));
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayTasks = tasks.filter(t => t.dueDate === dateStr);
+
+                const cell = document.createElement('div');
+                cell.className = `min-h-[85px] p-1.5 border border-gray-100 dark:border-gray-700/50 rounded-xl flex flex-col justify-start gap-1 ${dateStr === todayStr ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-300 dark:border-blue-700' : 'bg-gray-50/30 dark:bg-gray-900/20'}`;
+
+                cell.innerHTML = `
+                    <span class="text-[11px] font-bold ${dateStr === todayStr ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}">${day}</span>
+                    <div class="space-y-1 overflow-y-auto max-h-[60px]">
+                        ${dayTasks.map(t => `
+                            <div class="text-[9px] px-1.5 py-0.5 rounded ${t.completed ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 line-through' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'} truncate" title="${escapeHTML(t.title)}">
+                                ${escapeHTML(t.title)}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                grid.appendChild(cell);
+            }
+        }
+
+        function prevMonth() { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendarView(); }
+        function nextMonth() { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendarView(); }
+        function todayMonth() { currentDate = new Date(); renderCalendarView(); }
+
+        /* ==================== 4. ANALYTICS VIEW ==================== */
+        function renderAnalyticsView() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#9ca3af' : '#4b5563';
+
+            const categories = ['Work', 'Personal', 'Urgent', 'Health', 'Learning'];
+            const categoryCounts = categories.map(cat => tasks.filter(t => t.category === cat).length);
+
+            const ctxCat = document.getElementById('chart-category').getContext('2d');
+            if (categoryChartInstance) categoryChartInstance.destroy();
+            categoryChartInstance = new Chart(ctxCat, {
+                type: 'doughnut',
+                data: {
+                    labels: categories,
+                    datasets: [{ data: categoryCounts, backgroundColor: ['#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#f59e0b'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+            });
+
+            const priorities = ['Critical', 'High', 'Medium', 'Low'];
+            const priorityCounts = priorities.map(pri => tasks.filter(t => t.priority === pri).length);
+
+            const ctxPri = document.getElementById('chart-priority').getContext('2d');
+            if (priorityChartInstance) priorityChartInstance.destroy();
+            priorityChartInstance = new Chart(ctxPri, {
+                type: 'bar',
+                data: {
+                    labels: priorities,
+                    datasets: [{ label: 'Tasks', data: priorityCounts, backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#9ca3af'], borderRadius: 6 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor }, beginAtZero: true } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        /* ==================== TASK MODAL ACTIONS ==================== */
+        function openTaskModal(taskId = null) {
+            tempSubtasks = [];
+            const modal = document.getElementById('task-modal');
+            
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    document.getElementById('modal-title').innerText = 'Edit Task';
+                    document.getElementById('task-id').value = task.id;
+                    document.getElementById('task-title-input').value = task.title;
+                    document.getElementById('task-desc-input').value = task.description || '';
+                    document.getElementById('task-category-input').value = task.category;
+                    document.getElementById('task-priority-input').value = task.priority;
+                    document.getElementById('task-date-input').value = task.dueDate || '';
+                    document.getElementById('task-time-input').value = task.dueTime || '';
+                    document.getElementById('task-est-input').value = task.estimatedTime || '';
+                    document.getElementById('task-recurring-input').value = task.recurring || 'None';
+                    tempSubtasks = task.subtasks ? [...task.subtasks] : [];
+                }
+            } else {
+                document.getElementById('modal-title').innerText = 'Create New Task';
+                document.getElementById('task-form').reset();
+                document.getElementById('task-id').value = '';
+            }
+
+            renderModalSubtasks();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeTaskModal() {
+            const modal = document.getElementById('task-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function handleAddSubtask() {
+            const input = document.getElementById('subtask-input');
+            const val = input.value.trim();
+            if (val) {
+                tempSubtasks.push({ id: 'sub-' + Date.now(), title: val, completed: false });
+                input.value = '';
+                renderModalSubtasks();
+            }
+        }
+
+        function removeModalSubtask(subId) {
+            tempSubtasks = tempSubtasks.filter(s => s.id !== subId);
+            renderModalSubtasks();
+        }
+
+        function renderModalSubtasks() {
+            const list = document.getElementById('subtasks-list-modal');
+            list.innerHTML = tempSubtasks.map(s => `
+                <li class="flex items-center justify-between bg-gray-50 dark:bg-gray-900 px-3 py-1 rounded-lg text-xs">
+                    <span>${escapeHTML(s.title)}</span>
+                    <button type="button" onclick="removeModalSubtask('${s.id}')" class="text-red-500 hover:text-red-700">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                </li>
+            `).join('');
+            setupLucide();
+        }
+
+        async function saveTask(event) {
+            event.preventDefault();
+
+            const taskId = document.getElementById('task-id').value;
+            const title = document.getElementById('task-title-input').value.trim();
+            const description = document.getElementById('task-desc-input').value.trim();
+            const category = document.getElementById('task-category-input').value;
+            const priority = document.getElementById('task-priority-input').value;
+            const dueDate = document.getElementById('task-date-input').value;
+            const dueTime = document.getElementById('task-time-input').value;
+            const estimatedTime = parseInt(document.getElementById('task-est-input').value, 10) || 0;
+            const recurring = document.getElementById('task-recurring-input').value;
+
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.title = title;
+                    task.description = description;
+                    task.category = category;
+                    task.priority = priority;
+                    task.dueDate = dueDate;
+                    task.dueTime = dueTime;
+                    task.estimatedTime = estimatedTime;
+                    task.recurring = recurring;
+                    task.subtasks = tempSubtasks;
+                }
+                showToast('Task updated', 'success');
+            } else {
+                const newTask = {
+                    id: 'task-' + Date.now(),
+                    title, description, category, priority, dueDate, dueTime, estimatedTime, recurring,
+                    status: 'todo', completed: false, subtasks: tempSubtasks, created: new Date().toISOString()
+                };
+                tasks.unshift(newTask);
+                showToast('Task created', 'success');
+            }
+
+            saveTasksLocal();
+            await pushToSupabase();
+            closeTaskModal();
+            render();
+            playTone(600, 0.1);
+        }
+
+        async function toggleTaskCompletion(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                task.status = task.completed ? 'completed' : 'todo';
+                saveTasksLocal();
+                await pushToSupabase();
+                render();
+                playTone(task.completed ? 800 : 400, 0.15);
+            }
+        }
+
+        async function toggleSubtask(taskId, subId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task && task.subtasks) {
+                const sub = task.subtasks.find(s => s.id === subId);
+                if (sub) {
+                    sub.completed = !sub.completed;
+                    saveTasksLocal();
+                    await pushToSupabase();
+                    render();
+                }
+            }
+        }
+
+        async function deleteTask(taskId) {
+            tasks = tasks.filter(t => t.id !== taskId);
+            if (isSupabaseConnected && supabaseClient) {
+                try { await supabaseClient.from('tasks').delete().eq('id', taskId); } catch (e) {}
+            }
+            saveTasksLocal();
+            render();
+            showToast('Task deleted', 'warning');
+        }
+
+        function checkTaskDeadlines() {
+            const now = new Date();
+            tasks.forEach(t => {
+                if (!t.completed && t.dueDate && t.dueTime) {
+                    const due = new Date(`${t.dueDate}T${t.dueTime}`);
+                    const diffMs = due - now;
+                    if (diffMs > 0 && diffMs <= 300000 && !t.reminded) {
+                        t.reminded = true;
+                        playTone(900, 0.3);
+                        showToast(`Reminder: "${t.title}" is due in 5 mins!`, 'warning');
+                    }
+                }
+            });
+        }
+
+        /* ==================== POMODORO TIMER ==================== */
+        function openPomodoroModal() {
+            const select = document.getElementById('pomo-task-select');
+            select.innerHTML = '<option value="">-- No Specific Task --</option>' + 
+                tasks.filter(t => !t.completed).map(t => `<option value="${t.id}">${escapeHTML(t.title)}</option>`).join('');
+            const modal = document.getElementById('pomodoro-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePomodoroModal() {
+            const modal = document.getElementById('pomodoro-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function updatePomodoroDisplay() {
+            const minutes = Math.floor(pomodoroTimeLeft / 60);
+            const seconds = pomodoroTimeLeft % 60;
+            const str = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            document.getElementById('pomo-display').innerText = str;
+            document.getElementById('pomo-header-badge').innerText = str;
+        }
+
+        function togglePomodoroTimer() {
+            const btn = document.getElementById('pomo-start-btn');
+            if (pomodoroIsRunning) {
+                clearInterval(pomodoroInterval);
+                pomodoroIsRunning = false;
+                btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Start Focus';
+            } else {
+                pomodoroIsRunning = true;
+                btn.innerHTML = '<i data-lucide="pause" class="w-4 h-4"></i> Pause';
+                pomodoroInterval = setInterval(() => {
+                    if (pomodoroTimeLeft > 0) {
+                        pomodoroTimeLeft--;
+                        if (pomodoroMode === 'work') pomodoroTotalLoggedSeconds++;
+                        updatePomodoroDisplay();
+                        if (pomodoroTotalLoggedSeconds % 60 === 0) saveTasksLocal();
+                    } else {
+                        clearInterval(pomodoroInterval);
+                        pomodoroIsRunning = false;
+                        playTone(800, 0.4);
+                        
+                        if (pomodoroMode === 'work') {
+                            showToast('Focus session complete! Time for a break.', 'success');
+                            pomodoroMode = 'break';
+                            pomodoroTimeLeft = 5 * 60;
+                            document.getElementById('pomo-mode-label').innerText = 'Break Session';
+                        } else {
+                            showToast('Break finished! Ready to focus?', 'info');
+                            pomodoroMode = 'work';
+                            pomodoroTimeLeft = 25 * 60;
+                            document.getElementById('pomo-mode-label').innerText = 'Work Session';
+                        }
+                        btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Start Focus';
+                        updatePomodoroDisplay();
+                        updateMetrics();
+                    }
+                }, 1000);
+            }
+            setupLucide();
+        }
+
+        function resetPomodoroTimer() {
+            clearInterval(pomodoroInterval);
+            pomodoroIsRunning = false;
+            pomodoroMode = 'work';
+            pomodoroTimeLeft = 25 * 60;
+            document.getElementById('pomo-mode-label').innerText = 'Work Session';
+            document.getElementById('pomo-start-btn').innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Start Focus';
+            updatePomodoroDisplay();
+            setupLucide();
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        }
+    </script>
+</body>
+</html>
